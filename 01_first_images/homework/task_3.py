@@ -1,5 +1,5 @@
-import cv2
 import numpy as np
+import cv2 as cv
 
 
 def rotate(image, point: tuple, angle: float) -> np.ndarray:
@@ -11,10 +11,20 @@ def rotate(image, point: tuple, angle: float) -> np.ndarray:
     :param angle: угол поворота
     :return: повернутное изображение
     """
-    # Ваш код
-    pass
+    verticies = np.array([[image.shape[1] - 1, image.shape[0] - 1],
+                          [0, 0], [image.shape[1] - 1, 0],
+                          [0, image.shape[0] - 1]])
 
-    return image
+    matrix = cv.getRotationMatrix2D(point, angle, scale=1.0)
+
+    verticies_r3 = np.hstack((verticies, np.ones((verticies.shape[0], 1))))
+    verticies_transformed = matrix @ verticies_r3.T
+
+    matrix[:, 2] -= verticies_transformed.min(axis=1)
+    new_shape = verticies_transformed.max(axis=1) - verticies_transformed.min(axis=1)
+    new_shape = np.int64(np.ceil(new_shape))
+
+    return cv.warpAffine(image, matrix, new_shape)
 
 
 def apply_warpAffine(image, points1, points2) -> np.ndarray:
@@ -27,7 +37,18 @@ def apply_warpAffine(image, points1, points2) -> np.ndarray:
     :param points2:
     :return: преобразованное изображение
     """
-    # Ваш код
-    pass
 
-    return image
+    verticies = np.array([[image.shape[1] - 1, image.shape[0] - 1],
+                          [0, 0], [image.shape[1] - 1, 0],
+                          [0, image.shape[0] - 1]])
+
+    matrix = cv.getAffineTransform(points1, points2)
+
+    verticies_r3 = np.hstack((verticies, np.ones((verticies.shape[0], 1))))
+    verticies_transformed = matrix @ verticies_r3.T
+
+    matrix[:, 2] -= verticies_transformed.min(axis=1)
+    new_shape = verticies_transformed.max(axis=1) - verticies_transformed.min(axis=1)
+    new_shape = np.int64(np.ceil(new_shape))
+
+    return cv.warpAffine(image, matrix, new_shape)
