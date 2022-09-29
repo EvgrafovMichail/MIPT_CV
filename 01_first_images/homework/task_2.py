@@ -68,4 +68,4 @@ def find_road_number(image: np.ndarray) -> int:
         if len(ind_car) > 0:
             line_car = i
 
-    return lane_free
+    return lane_free if lane_free != lane_car else -1
