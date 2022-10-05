@@ -2,6 +2,27 @@ from numpy.lib.stride_tricks import as_strided
 import numpy as np
 
 
+def expand_kernel(kernel):
+    """
+    Add one zero column if column's amount is even.
+    Add one zero row if row's amount is even.
+
+    Args:
+        kernel: np.ndarray of shape(hk, wk)
+
+    Returns: np.ndarray of expanded shape
+
+    """
+
+    if kernel.shape[0] % 2 == 0:
+        kernel = np.vstack((kernel, np.zeros(kernel.shape[1])))
+
+    if kernel.shape[1] % 2 == 0:
+        kernel = np.hstack((kernel, np.zeros(kernel.shape[0])))
+
+    return kernel
+
+
 def conv_nested(image, kernel):
     """A naive implementation of convolution filter.
 
@@ -16,6 +37,9 @@ def conv_nested(image, kernel):
     Returns:
         out: numpy array of shape (hi, wi).
     """
+
+    kernel = expand_kernel(kernel)
+
     hi, wi = image.shape
     hk, wk = kernel.shape
 
@@ -85,11 +109,14 @@ def conv_fast(image, kernel):
     Returns:
         out: numpy array of shape (hi, wi).
     """
+
+    ker_reversed = np.flip(kernel)
+    ker_reversed = expand_kernel(ker_reversed)
+
     hi, wi = image.shape
-    hk, wk = kernel.shape
+    hk, wk = ker_reversed.shape
 
     out = np.zeros((hi, wi))
-    ker_reversed = np.flip(kernel)
     padded = zero_pad(image, hk // 2, wk // 2)
 
     for i in range(hk // 2, hk // 2 + hi):
@@ -111,10 +138,12 @@ def conv_faster(image, kernel):
         out: numpy array of shape (hi, wi).
     """
 
-    hi, wi = image.shape
-    hk, wk = kernel.shape
-
     ker_reversed = np.flip(kernel)
+    ker_reversed = expand_kernel(ker_reversed)
+
+    hi, wi = image.shape
+    hk, wk = ker_reversed.shape
+
     padded = zero_pad(image, hk // 2, wk // 2)
 
     strided_shape = (hi, wi, hk, wk)
@@ -138,10 +167,8 @@ def cross_correlation(f, g):
         out: numpy array of shape (Hf, Wf).
     """
 
-    out = np.zeros_like(f)
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    kernel = np.flip(g)
+    out = conv_faster(f, kernel)
 
     return out
 
@@ -161,10 +188,8 @@ def zero_mean_cross_correlation(f, g):
         out: numpy array of shape (Hf, Wf).
     """
 
-    out = np.zeros_like(f)
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    kernel = np.flip(g) - g.mean()
+    out = conv_faster(f, kernel)
 
     return out
 
@@ -186,9 +211,21 @@ def normalized_cross_correlation(f, g):
         out: numpy array of shape (Hf, Wf).
     """
 
-    out = np.zeros_like(f)
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    kernel = expand_kernel(g)
+
+    hi, wi = f.shape
+    hk, wk = kernel.shape
+
+    padded = zero_pad(f, hk // 2, wk // 2)
+
+    strided_shape = (hi, wi, hk, wk)
+    strided = as_strided(padded, strided_shape, strides=padded.strides * 2)
+
+    strided_mean = strided.mean(axis=(2, 3))[:, :, np.newaxis, np.newaxis]
+    strided_std = strided.std(axis=(2, 3))[:, :, np.newaxis, np.newaxis]
+    strided = (strided - strided_mean) / strided_std
+    kernel = (kernel - kernel.mean()) - kernel.std()
+
+    out = np.sum(strided * kernel, axis=(2, 3))
 
     return out
